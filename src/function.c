@@ -1,4 +1,5 @@
 #include "function.h"
+#include "parser_utils.h" 
 
 #include <string.h>
 #include <stdlib.h>
@@ -284,13 +285,7 @@ void FunctionSet(
         return;
     }
 
-    strncpy(
-        funcion->expresion,
-        expresion,
-        FUNCTION_MAX - 1
-    );
-
-    funcion->expresion[FUNCTION_MAX - 1] = '\0';
+    PreprocesarExpresion(expresion, funcion->expresion, FUNCTION_MAX);
 
     funcion->valida = 1;
 }
