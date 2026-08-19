@@ -1,6 +1,5 @@
 #include <windows.h>
-
-#include "window.h"
+#include "../include/window.h"
 
 int WINAPI WinMain(
     HINSTANCE hInstance,
