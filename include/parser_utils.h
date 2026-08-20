@@ -3,6 +3,10 @@
 
 #include <stddef.h>
 
-void PreprocesarExpresion(const char *origen, char *destino, size_t maxLen);
+void PreprocessExpression(
+    const char *source,
+    char *destination,
+    size_t maxLength
+);
 
 #endif

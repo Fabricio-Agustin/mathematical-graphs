@@ -1,17 +1,18 @@
-#ifndef GRAPH_H
-#define GRAPH_H
+#ifndef CURSOR_INFO_H
+#define CURSOR_INFO_H
 
 #include <windows.h>
-
 #include "coordinates.h"
 #include "function.h"
 
-void DrawGraph(
+void DrawCursorInfo(
     HDC hdc,
     int width,
     int height,
     GraphView *view,
-    MathFunction *function
+    MathFunction *function,
+    int mouseX,
+    int mouseY
 );
 
 #endif

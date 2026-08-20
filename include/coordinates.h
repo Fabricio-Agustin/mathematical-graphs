@@ -3,15 +3,34 @@
 
 typedef struct
 {
-    double escala;
-    double centroX;
-    double centroY;
+    double scale;
+    double centerX;
+    double centerY;
+
 } GraphView;
 
-int PantallaX(double x, int ancho, GraphView *vista);
-int PantallaY(double y, int alto, GraphView *vista);
+int ScreenX(
+    double x,
+    int width,
+    GraphView *view
+);
 
-double MundoX(int x, int ancho, GraphView *vista);
-double MundoY(int y, int alto, GraphView *vista);
+int ScreenY(
+    double y,
+    int height,
+    GraphView *view
+);
+
+double WorldX(
+    int x,
+    int width,
+    GraphView *view
+);
+
+double WorldY(
+    int y,
+    int height,
+    GraphView *view
+);
 
 #endif

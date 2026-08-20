@@ -1,12 +1,12 @@
-#ifndef GRAPH_H
-#define GRAPH_H
+#ifndef EXTREMES_H
+#define EXTREMES_H
 
 #include <windows.h>
-
 #include "coordinates.h"
 #include "function.h"
 
-void DrawGraph(
+// Escanea el área visible para encontrar los puntos máximos y mínimos y los dibuja
+void DrawExtremes(
     HDC hdc,
     int width,
     int height,

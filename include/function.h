@@ -5,19 +5,21 @@
 
 typedef struct
 {
-    char expresion[FUNCTION_MAX];
-    int valida;
+    char expression[FUNCTION_MAX];
+    int valid;
 } MathFunction;
 
-void FunctionInit(MathFunction *funcion);
+void FunctionInit(
+    MathFunction *function
+);
 
 void FunctionSet(
-    MathFunction *funcion,
-    const char *expresion
+    MathFunction *function,
+    const char *expression
 );
 
 double FunctionEvaluate(
-    MathFunction *funcion,
+    MathFunction *function,
     double x
 );
 

@@ -3,6 +3,7 @@
 #include "graph.h"
 #include "coordinates.h"
 #include "function.h"
+#include "extremes.h" 
 
 #include <windows.h>
 #include <stdio.h>
@@ -19,27 +20,27 @@ static HWND g_hFunction;
 static HWND g_hGraphButton;
 static HWND g_hClearButton;
 
-static GraphView g_vista;
-static MathFunction g_funcion;
+static GraphView g_view;
+static MathFunction g_function;
 
-static BOOL g_arrastrando = FALSE;
+static BOOL g_dragging = FALSE;
 
-static int g_mouseAnteriorX = 0;
-static int g_mouseAnteriorY = 0;
+static int g_previousMouseX = 0;
+static int g_previousMouseY = 0;
 
-static void ActualizarFuncion(HWND hWnd)
+static void UpdateFunction(HWND hWnd)
 {
-    char texto[256];
+    char text[256];
 
     GetWindowTextA(
         g_hFunction,
-        texto,
-        sizeof(texto)
+        text,
+        sizeof(text)
     );
 
-    if (texto[0] == '\0')
+    if (text[0] == '\0')
     {
-        g_funcion.valida = 0;
+        g_function.valid = 0;
 
         InvalidateRect(
             hWnd,
@@ -51,8 +52,8 @@ static void ActualizarFuncion(HWND hWnd)
     }
 
     FunctionSet(
-        &g_funcion,
-        texto
+        &g_function,
+        text
     );
 
     InvalidateRect(
@@ -62,11 +63,11 @@ static void ActualizarFuncion(HWND hWnd)
     );
 }
 
-static void ResetVista(HWND hWnd)
+static void ResetView(HWND hWnd)
 {
-    g_vista.escala = 40.0;
-    g_vista.centroX = 0.0;
-    g_vista.centroY = 0.0;
+    g_view.scale = 40.0;
+    g_view.centerX = 0.0;
+    g_view.centerY = 0.0;
 
     InvalidateRect(
         hWnd,
@@ -77,22 +78,22 @@ static void ResetVista(HWND hWnd)
 
 static LRESULT CALLBACK WindowProc(
     HWND hWnd,
-    UINT mensaje,
+    UINT message,
     WPARAM wParam,
     LPARAM lParam
 )
 {
-    switch (mensaje)
+    switch (message)
     {
         case WM_CREATE:
         {
-            HFONT fuente;
+            HFONT font;
 
-            g_vista.escala = 40.0;
-            g_vista.centroX = 0.0;
-            g_vista.centroY = 0.0;
+            g_view.scale = 40.0;
+            g_view.centerX = 0.0;
+            g_view.centerY = 0.0;
 
-            FunctionInit(&g_funcion);
+            FunctionInit(&g_function);
 
             g_hFunction = CreateWindowExA(
                 WS_EX_CLIENTEDGE,
@@ -114,7 +115,7 @@ static LRESULT CALLBACK WindowProc(
             g_hGraphButton = CreateWindowExA(
                 0,
                 "BUTTON",
-                "Graficar",
+                "Graph",
                 WS_CHILD |
                 WS_VISIBLE |
                 BS_PUSHBUTTON,
@@ -131,7 +132,7 @@ static LRESULT CALLBACK WindowProc(
             g_hClearButton = CreateWindowExA(
                 0,
                 "BUTTON",
-                "Limpiar",
+                "Clear",
                 WS_CHILD |
                 WS_VISIBLE |
                 BS_PUSHBUTTON,
@@ -145,28 +146,28 @@ static LRESULT CALLBACK WindowProc(
                 NULL
             );
 
-            fuente = (HFONT)GetStockObject(
+            font = (HFONT)GetStockObject(
                 DEFAULT_GUI_FONT
             );
 
             SendMessage(
                 g_hFunction,
                 WM_SETFONT,
-                (WPARAM)fuente,
+                (WPARAM)font,
                 TRUE
             );
 
             SendMessage(
                 g_hGraphButton,
                 WM_SETFONT,
-                (WPARAM)fuente,
+                (WPARAM)font,
                 TRUE
             );
 
             SendMessage(
                 g_hClearButton,
                 WM_SETFONT,
-                (WPARAM)fuente,
+                (WPARAM)font,
                 TRUE
             );
 
@@ -175,22 +176,22 @@ static LRESULT CALLBACK WindowProc(
 
         case WM_SIZE:
         {
-            int ancho = LOWORD(lParam);
+            int width = LOWORD(lParam);
 
-            if (ancho > 200)
+            if (width > 200)
             {
                 MoveWindow(
                     g_hFunction,
                     10,
                     15,
-                    ancho - 240,
+                    width - 240,
                     28,
                     TRUE
                 );
 
                 MoveWindow(
                     g_hGraphButton,
-                    ancho - 220,
+                    width - 220,
                     15,
                     100,
                     28,
@@ -199,7 +200,7 @@ static LRESULT CALLBACK WindowProc(
 
                 MoveWindow(
                     g_hClearButton,
-                    ancho - 110,
+                    width - 110,
                     15,
                     100,
                     28,
@@ -221,16 +222,17 @@ static LRESULT CALLBACK WindowProc(
             switch (LOWORD(wParam))
             {
                 case ID_GRAPH:
-                    ActualizarFuncion(hWnd);
+                    UpdateFunction(hWnd);
                     return 0;
 
                 case ID_CLEAR:
+
                     SetWindowTextA(
                         g_hFunction,
                         ""
                     );
 
-                    g_funcion.valida = 0;
+                    g_function.valid = 0;
 
                     InvalidateRect(
                         hWnd,
@@ -261,8 +263,8 @@ static LRESULT CALLBACK WindowProc(
 
             if (rect.bottom > GRAPH_TOP)
             {
-                int ancho = rect.right;
-                int alto = rect.bottom - GRAPH_TOP;
+                int width = rect.right;
+                int height = rect.bottom - GRAPH_TOP;
 
                 SaveDC(hdc);
 
@@ -273,12 +275,20 @@ static LRESULT CALLBACK WindowProc(
                     NULL
                 );
 
-                DibujarGrafico(
+                DrawGraph(
                     hdc,
-                    ancho,
-                    alto,
-                    &g_vista,
-                    &g_funcion
+                    width,
+                    height,
+                    &g_view,
+                    &g_function
+                );
+
+                DrawExtremes(
+                    hdc,
+                    width,
+                    height,
+                    &g_view,
+                    &g_function
                 );
 
                 RestoreDC(
@@ -297,10 +307,10 @@ static LRESULT CALLBACK WindowProc(
 
         case WM_LBUTTONDOWN:
         {
-            g_arrastrando = TRUE;
+            g_dragging = TRUE;
 
-            g_mouseAnteriorX = LOWORD(lParam);
-            g_mouseAnteriorY = HIWORD(lParam) - GRAPH_TOP;
+            g_previousMouseX = LOWORD(lParam);
+            g_previousMouseY = HIWORD(lParam) - GRAPH_TOP;
 
             SetCapture(hWnd);
 
@@ -309,7 +319,7 @@ static LRESULT CALLBACK WindowProc(
 
         case WM_LBUTTONUP:
         {
-            g_arrastrando = FALSE;
+            g_dragging = FALSE;
 
             ReleaseCapture();
 
@@ -318,7 +328,7 @@ static LRESULT CALLBACK WindowProc(
 
         case WM_MOUSEMOVE:
         {
-            if (g_arrastrando)
+            if (g_dragging)
             {
                 int x;
                 int y;
@@ -329,17 +339,17 @@ static LRESULT CALLBACK WindowProc(
                 x = LOWORD(lParam);
                 y = HIWORD(lParam) - GRAPH_TOP;
 
-                dx = x - g_mouseAnteriorX;
-                dy = y - g_mouseAnteriorY;
+                dx = x - g_previousMouseX;
+                dy = y - g_previousMouseY;
 
-                g_vista.centroX -=
-                    dx / g_vista.escala;
+                g_view.centerX -=
+                    dx / g_view.scale;
 
-                g_vista.centroY +=
-                    dy / g_vista.escala;
+                g_view.centerY +=
+                    dy / g_view.scale;
 
-                g_mouseAnteriorX = x;
-                g_mouseAnteriorY = y;
+                g_previousMouseX = x;
+                g_previousMouseY = y;
 
                 InvalidateRect(
                     hWnd,
@@ -358,11 +368,11 @@ static LRESULT CALLBACK WindowProc(
             POINT mouse;
             RECT rect;
 
-            double antesX;
-            double antesY;
+            double beforeX;
+            double beforeY;
 
-            double despuesX;
-            double despuesY;
+            double afterX;
+            double afterY;
 
             delta = GET_WHEEL_DELTA_WPARAM(wParam);
 
@@ -381,51 +391,51 @@ static LRESULT CALLBACK WindowProc(
                 &rect
             );
 
-            int alto = rect.bottom - GRAPH_TOP;
+            int height = rect.bottom - GRAPH_TOP;
 
-            if (alto <= 0)
+            if (height <= 0)
                 return 0;
 
-            antesX = MundoX(
+            beforeX = WorldX(
                 mouse.x,
                 rect.right,
-                &g_vista
+                &g_view
             );
 
-            antesY = MundoY(
+            beforeY = WorldY(
                 mouse.y,
-                alto,
-                &g_vista
+                height,
+                &g_view
             );
 
             if (delta > 0)
-                g_vista.escala *= 1.15;
+                g_view.scale *= 1.15;
             else
-                g_vista.escala /= 1.15;
+                g_view.scale /= 1.15;
 
-            if (g_vista.escala < 5.0)
-                g_vista.escala = 5.0;
+            if (g_view.scale < 5.0)
+                g_view.scale = 5.0;
 
-            if (g_vista.escala > 500.0)
-                g_vista.escala = 500.0;
+            if (g_view.scale > 500.0)
+                g_view.scale = 500.0;
 
-            despuesX = MundoX(
+            afterX = WorldX(
                 mouse.x,
                 rect.right,
-                &g_vista
+                &g_view
             );
 
-            despuesY = MundoY(
+            afterY = WorldY(
                 mouse.y,
-                alto,
-                &g_vista
+                height,
+                &g_view
             );
 
-            g_vista.centroX +=
-                antesX - despuesX;
+            g_view.centerX +=
+                beforeX - afterX;
 
-            g_vista.centroY +=
-                antesY - despuesY;
+            g_view.centerY +=
+                beforeY - afterY;
 
             InvalidateRect(
                 hWnd,
@@ -440,7 +450,7 @@ static LRESULT CALLBACK WindowProc(
         {
             if (wParam == 'R')
             {
-                ResetVista(hWnd);
+                ResetView(hWnd);
             }
 
             return 0;
@@ -455,13 +465,13 @@ static LRESULT CALLBACK WindowProc(
 
     return DefWindowProcA(
         hWnd,
-        mensaje,
+        message,
         wParam,
         lParam
     );
 }
 
-int IniciarVentana(
+int InitializeWindow(
     HINSTANCE hInstance,
     int nCmdShow
 )
@@ -482,14 +492,17 @@ int IniciarVentana(
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = hInstance;
     wc.lpszClassName = CLASS_NAME;
+
     wc.hCursor = LoadCursorA(
         NULL,
         IDC_ARROW
     );
+
     wc.hIcon = LoadIconA(
         NULL,
         IDI_APPLICATION
     );
+
     wc.hbrBackground =
         (HBRUSH)(COLOR_WINDOW + 1);
 
@@ -497,7 +510,7 @@ int IniciarVentana(
     {
         MessageBoxA(
             NULL,
-            "No se pudo registrar la ventana.",
+            "Failed to register the window.",
             "MathGraph",
             MB_OK | MB_ICONERROR
         );
@@ -508,7 +521,7 @@ int IniciarVentana(
     hWnd = CreateWindowExA(
         0,
         CLASS_NAME,
-        "MathGraph - Graficador Matematico",
+        "MathGraph - Mathematical Graphing Calculator",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -524,7 +537,7 @@ int IniciarVentana(
     {
         MessageBoxA(
             NULL,
-            "No se pudo crear la ventana.",
+            "Failed to create the window.",
             "MathGraph",
             MB_OK | MB_ICONERROR
         );

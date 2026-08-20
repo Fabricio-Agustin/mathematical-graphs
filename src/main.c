@@ -1,4 +1,5 @@
 #include <windows.h>
+
 #include "../include/window.h"
 
 int WINAPI WinMain(
@@ -11,7 +12,7 @@ int WINAPI WinMain(
     (void)hPrevInstance;
     (void)lpCmdLine;
 
-    return IniciarVentana(
+    return InitializeWindow(
         hInstance,
         nCmdShow
     );

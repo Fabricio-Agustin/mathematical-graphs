@@ -1,29 +1,21 @@
 #include "coordinates.h"
 
-int PantallaX(double x, int ancho, GraphView *vista)
+int ScreenX(double x, int width, GraphView *view)
 {
-    return (int)(
-        ancho / 2.0 +
-        (x - vista->centroX) * vista->escala
-    );
+    return (int)((x - view->centerX) * view->scale + width / 2.0);
 }
 
-int PantallaY(double y, int alto, GraphView *vista)
+int ScreenY(double y, int height, GraphView *view)
 {
-    return (int)(
-        alto / 2.0 -
-        (y - vista->centroY) * vista->escala
-    );
+    return (int)(height / 2.0 - (y - view->centerY) * view->scale);
 }
 
-double MundoX(int x, int ancho, GraphView *vista)
+double WorldX(int x, int width, GraphView *view)
 {
-    return vista->centroX +
-        (x - ancho / 2.0) / vista->escala;
+    return (x - width / 2.0) / view->scale + view->centerX;
 }
 
-double MundoY(int y, int alto, GraphView *vista)
+double WorldY(int y, int height, GraphView *view)
 {
-    return vista->centroY -
-        (y - alto / 2.0) / vista->escala;
+    return (height / 2.0 - y) / view->scale + view->centerY;
 }

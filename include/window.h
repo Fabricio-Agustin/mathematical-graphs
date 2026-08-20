@@ -3,7 +3,7 @@
 
 #include <windows.h>
 
-int IniciarVentana(
+int InitializeWindow(
     HINSTANCE hInstance,
     int nCmdShow
 );

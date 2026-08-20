@@ -1,223 +1,256 @@
 #include "function.h"
-#include "parser_utils.h" 
+#include "parser_utils.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
 
-static const char *texto;
-static double valorX;
-static int errorParser;
+static const char *text;
+static double valueX;
+static int parserError;
 
-static void SaltarEspacios(void)
+static void SkipSpaces(void)
 {
-    while (*texto && isspace((unsigned char)*texto))
-        texto++;
+    while (*text && isspace((unsigned char)*text))
+        text++;
 }
 
-static double Expresion(void);
+static double Expression(void);
 
-static double Numero(void)
+static double Number(void)
 {
-    char *final;
-    double valor;
+    char *end;
+    double value;
 
-    SaltarEspacios();
+    SkipSpaces();
 
-    valor = strtod(texto, &final);
+    value = strtod(text, &end);
 
-    if (final == texto)
+    if (end == text)
     {
-        errorParser = 1;
+        parserError = 1;
         return 0.0;
     }
 
-    texto = final;
+    text = end;
 
-    return valor;
+    return value;
 }
 
 static double Factor(void)
 {
-    double resultado;
+    double result;
 
-    SaltarEspacios();
+    SkipSpaces();
 
-    if (*texto == '+')
+    if (*text == '+')
     {
-        texto++;
+        text++;
         return Factor();
     }
 
-    if (*texto == '-')
+    if (*text == '-')
     {
-        texto++;
+        text++;
         return -Factor();
     }
 
-    if (*texto == '(')
+    if (*text == '(')
     {
-        texto++;
+        text++;
 
-        resultado = Expresion();
+        result = Expression();
 
-        SaltarEspacios();
+        SkipSpaces();
 
-        if (*texto != ')')
+        if (*text != ')')
         {
-            errorParser = 1;
+            parserError = 1;
             return 0.0;
         }
 
-        texto++;
+        text++;
 
-        return resultado;
+        return result;
     }
 
-    if (isalpha((unsigned char)*texto))
+    if (isalpha((unsigned char)*text))
     {
-        char nombre[20];
+        char name[20];
         int i = 0;
 
-        while (isalpha((unsigned char)*texto) && i < 19)
+        while (isalpha((unsigned char)*text) && i < 19)
         {
-            nombre[i++] = (char)tolower((unsigned char)*texto);
-            texto++;
+            name[i++] = (char)tolower(
+                (unsigned char)*text
+            );
+
+            text++;
         }
 
-        nombre[i] = '\0';
+        name[i] = '\0';
 
-        if (strcmp(nombre, "x") == 0)
+        if (strcmp(name, "x") == 0)
         {
-            return valorX;
+            return valueX;
         }
 
-        if (strcmp(nombre, "pi") == 0)
+        if (strcmp(name, "pi") == 0)
         {
             return 3.14159265358979323846;
         }
 
-        if (strcmp(nombre, "e") == 0)
+        if (strcmp(name, "e") == 0)
         {
             return 2.71828182845904523536;
         }
 
-        SaltarEspacios();
+        SkipSpaces();
 
-        if (*texto != '(')
+        if (*text != '(')
         {
-            errorParser = 1;
+            parserError = 1;
             return 0.0;
         }
 
-        texto++;
+        text++;
 
-        resultado = Expresion();
+        result = Expression();
 
-        SaltarEspacios();
+        SkipSpaces();
 
-        if (*texto != ')')
+        if (*text != ')')
         {
-            errorParser = 1;
+            parserError = 1;
             return 0.0;
         }
 
-        texto++;
+        text++;
 
-        if (strcmp(nombre, "sin") == 0)
-            return sin(resultado);
+        if (strcmp(name, "sin") == 0)
+            return sin(result);
 
-        if (strcmp(nombre, "cos") == 0)
-            return cos(resultado);
+        if (strcmp(name, "cos") == 0)
+            return cos(result);
 
-        if (strcmp(nombre, "tan") == 0)
-            return tan(resultado);
+        if (strcmp(name, "tan") == 0)
+            return tan(result);
 
-        if (strcmp(nombre, "sqrt") == 0)
+        if (strcmp(name, "exp") == 0)
+            return exp(result);
+
+        if (strcmp(name, "log10") == 0)
         {
-            if (resultado < 0)
+            if (result <= 0)
             {
-                errorParser = 1;
+                parserError = 1;
+                return 0.0;
+            }
+            return log10(result);
+        }
+
+        if (strcmp(name, "asin") == 0)
+            return asin(result);
+
+        if (strcmp(name, "acos") == 0)
+            return acos(result);
+
+        if (strcmp(name, "atan") == 0)
+            return atan(result);
+
+        if (strcmp(name, "sinh") == 0)
+            return sinh(result);
+
+        if (strcmp(name, "cosh") == 0)
+            return cosh(result);
+
+        if (strcmp(name, "sqrt") == 0)
+        {
+            if (result < 0)
+            {
+                parserError = 1;
                 return 0.0;
             }
 
-            return sqrt(resultado);
+            return sqrt(result);
         }
 
-        if (strcmp(nombre, "log") == 0)
+        if (strcmp(name, "log") == 0)
         {
-            if (resultado <= 0)
+            if (result <= 0)
             {
-                errorParser = 1;
+                parserError = 1;
                 return 0.0;
             }
 
-            return log(resultado);
+            return log(result);
         }
 
-        if (strcmp(nombre, "abs") == 0)
-            return fabs(resultado);
+        if (strcmp(name, "abs") == 0)
+            return fabs(result);
 
-        errorParser = 1;
+        parserError = 1;
+
         return 0.0;
     }
 
-    return Numero();
+    return Number();
 }
 
-static double Potencia(void)
+static double Power(void)
 {
-    double izquierda;
-    double derecha;
+    double left;
+    double right;
 
-    izquierda = Factor();
+    left = Factor();
 
-    SaltarEspacios();
+    SkipSpaces();
 
-    if (*texto == '^')
+    if (*text == '^')
     {
-        texto++;
+        text++;
 
-        derecha = Potencia();
+        right = Power();
 
-        izquierda = pow(izquierda, derecha);
+        left = pow(left, right);
     }
 
-    return izquierda;
+    return left;
 }
 
-static double Termino(void)
+static double Term(void)
 {
-    double resultado;
-    double valor;
+    double result;
+    double value;
 
-    resultado = Potencia();
+    result = Power();
 
-    while (!errorParser)
+    while (!parserError)
     {
-        SaltarEspacios();
+        SkipSpaces();
 
-        if (*texto == '*')
+        if (*text == '*')
         {
-            texto++;
+            text++;
 
-            valor = Potencia();
-            resultado *= valor;
+            value = Power();
+
+            result *= value;
         }
-        else if (*texto == '/')
+        else if (*text == '/')
         {
-            texto++;
+            text++;
 
-            valor = Potencia();
+            value = Power();
 
-            if (fabs(valor) < 1e-15)
+            if (fabs(value) < 1e-15)
             {
-                errorParser = 1;
+                parserError = 1;
                 return 0.0;
             }
 
-            resultado /= valor;
+            result /= value;
         }
         else
         {
@@ -225,33 +258,35 @@ static double Termino(void)
         }
     }
 
-    return resultado;
+    return result;
 }
 
-static double Expresion(void)
+static double Expression(void)
 {
-    double resultado;
-    double valor;
+    double result;
+    double value;
 
-    resultado = Termino();
+    result = Term();
 
-    while (!errorParser)
+    while (!parserError)
     {
-        SaltarEspacios();
+        SkipSpaces();
 
-        if (*texto == '+')
+        if (*text == '+')
         {
-            texto++;
+            text++;
 
-            valor = Termino();
-            resultado += valor;
+            value = Term();
+
+            result += value;
         }
-        else if (*texto == '-')
+        else if (*text == '-')
         {
-            texto++;
+            text++;
 
-            valor = Termino();
-            resultado -= valor;
+            value = Term();
+
+            result -= value;
         }
         else
         {
@@ -259,60 +294,64 @@ static double Expresion(void)
         }
     }
 
-    return resultado;
+    return result;
 }
 
-void FunctionInit(MathFunction *funcion)
+void FunctionInit(MathFunction *function)
 {
-    if (!funcion)
+    if (!function)
         return;
 
-    funcion->expresion[0] = '\0';
-    funcion->valida = 0;
+    function->expression[0] = '\0';
+    function->valid = 0;
 }
 
 void FunctionSet(
-    MathFunction *funcion,
-    const char *expresion
+    MathFunction *function,
+    const char *expression
 )
 {
-    if (!funcion)
+    if (!function)
         return;
 
-    if (!expresion)
+    if (!expression)
     {
-        FunctionInit(funcion);
+        FunctionInit(function);
         return;
     }
 
-    PreprocesarExpresion(expresion, funcion->expresion, FUNCTION_MAX);
+    PreprocessExpression(
+        expression,
+        function->expression,
+        FUNCTION_MAX
+    );
 
-    funcion->valida = 1;
+    function->valid = 1;
 }
 
 double FunctionEvaluate(
-    MathFunction *funcion,
+    MathFunction *function,
     double x
 )
 {
-    double resultado;
+    double result;
 
-    if (!funcion || !funcion->valida)
+    if (!function || !function->valid)
         return 0.0;
 
-    texto = funcion->expresion;
-    valorX = x;
-    errorParser = 0;
+    text = function->expression;
+    valueX = x;
+    parserError = 0;
 
-    resultado = Expresion();
+    result = Expression();
 
-    SaltarEspacios();
+    SkipSpaces();
 
-    if (*texto != '\0')
-        errorParser = 1;
+    if (*text != '\0')
+        parserError = 1;
 
-    if (errorParser)
+    if (parserError)
         return NAN;
 
-    return resultado;
+    return result;
 }

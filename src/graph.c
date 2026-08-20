@@ -1,379 +1,152 @@
-#include "graph.h"
-
-#include <windows.h>
 #include <math.h>
 #include <stdio.h>
+#include "graph.h"
 
-static void DibujarTexto(
-    HDC hdc,
-    int x,
-    int y,
-    const char *texto,
-    COLORREF color
-)
+// Función auxiliar para dibujar texto sin colisionar con la API de Windows
+static void DrawGraphText(HDC hdc, int x, int y, const char *text)
 {
-    SetTextColor(hdc, color);
     SetBkMode(hdc, TRANSPARENT);
-
-    TextOutA(
-        hdc,
-        x,
-        y,
-        texto,
-        lstrlenA(texto)
-    );
+    SetTextColor(hdc, RGB(100, 100, 100));
+    TextOutA(hdc, x, y, text, (int)strlen(text));
 }
 
-static void DibujarCuadricula(
+void DrawGraph(
     HDC hdc,
-    int ancho,
-    int alto,
-    GraphView *vista
+    int width,
+    int height,
+    GraphView *view,
+    MathFunction *function
 )
 {
-    HPEN lapiz;
-    HPEN anterior;
+    // 1. Limpiar el fondo con color blanco
+    HBRUSH bgBrush = CreateSolidBrush(RGB(255, 255, 255));
+    RECT clientRect = {0, 0, width, height};
+    FillRect(hdc, &clientRect, bgBrush);
+    DeleteObject(bgBrush);
 
-    lapiz = CreatePen(
-        PS_SOLID,
-        1,
-        RGB(232, 232, 232)
-    );
+    // 2. Dibujar la cuadrícula, los ejes y los números
+    HPEN gridPen = CreatePen(PS_DOT, 1, RGB(220, 220, 220));
+    HPEN axisPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
 
-    anterior = (HPEN)SelectObject(
-        hdc,
-        lapiz
-    );
+    HPEN oldPen = (HPEN)SelectObject(hdc, gridPen);
 
-    double izquierda = MundoX(0, ancho, vista);
-    double derecha = MundoX(ancho, ancho, vista);
-    double arriba = MundoY(0, alto, vista);
-    double abajo = MundoY(alto, alto, vista);
+    int originX = ScreenX(0.0, width, view);
+    int originY = ScreenY(0.0, height, view);
 
-    int inicioX = (int)floor(izquierda);
-    int finX = (int)ceil(derecha);
+    // Dibujar líneas de la cuadrícula y etiquetas numéricas basadas en la escala
+    double step = 1.0;
+    if (view->scale < 20.0) step = 5.0;
+    if (view->scale < 10.0) step = 10.0;
+    if (view->scale > 100.0) step = 0.5;
+    if (view->scale > 300.0) step = 0.1;
 
-    int inicioY = (int)floor(abajo);
-    int finY = (int)ceil(arriba);
+    // Eje X (Verticales de la cuadrícula y números)
+    double minX = WorldX(0, width, view);
+    double maxX = WorldX(width, width, view);
+    double startX = ceil(minX / step) * step;
 
-    int x;
-    int y;
-
-    for (x = inicioX; x <= finX; x++)
+    for (double x = startX; x <= maxX; x += step)
     {
-        int px = PantallaX(x, ancho, vista);
+        int px = ScreenX(x, width, view);
 
+        // Línea de cuadrícula vertical
+        SelectObject(hdc, gridPen);
         MoveToEx(hdc, px, 0, NULL);
-        LineTo(hdc, px, alto);
+        LineTo(hdc, px, height);
+
+        // Dibujar número en el eje X si está visible verticalmente
+        if (originY >= 0 && originY <= height && fabs(x) > 0.001)
+        {
+            char text[32];
+            sprintf(text, "%.1f", x);
+            DrawGraphText(hdc, px - 10, originY + 5, text);
+        }
     }
 
-    for (y = inicioY; y <= finY; y++)
-    {
-        int py = PantallaY(y, alto, vista);
+    // Eje Y (Horizontales de la cuadrícula y números)
+    double minY = WorldY(height, height, view);
+    double maxY = WorldY(0, height, view);
+    double startY = ceil(minY / step) * step;
 
+    for (double y = startY; y <= maxY; y += step)
+    {
+        int py = ScreenY(y, height, view);
+
+        // Línea de cuadrícula horizontal
+        SelectObject(hdc, gridPen);
         MoveToEx(hdc, 0, py, NULL);
-        LineTo(hdc, ancho, py);
-    }
+        LineTo(hdc, width, py);
 
-    SelectObject(hdc, anterior);
-    DeleteObject(lapiz);
-}
-
-static void DibujarEjes(
-    HDC hdc,
-    int ancho,
-    int alto,
-    GraphView *vista
-)
-{
-    HPEN lapiz;
-    HPEN anterior;
-
-    lapiz = CreatePen(
-        PS_SOLID,
-        2,
-        RGB(30, 30, 30)
-    );
-
-    anterior = (HPEN)SelectObject(
-        hdc,
-        lapiz
-    );
-
-    int ejeX = PantallaY(0, alto, vista);
-    int ejeY = PantallaX(0, ancho, vista);
-
-    MoveToEx(hdc, 0, ejeX, NULL);
-    LineTo(hdc, ancho, ejeX);
-
-    MoveToEx(
-        hdc,
-        ancho - 12,
-        ejeX - 6,
-        NULL
-    );
-
-    LineTo(hdc, ancho, ejeX);
-
-    LineTo(
-        hdc,
-        ancho - 12,
-        ejeX + 6
-    );
-
-    MoveToEx(hdc, ejeY, 0, NULL);
-    LineTo(hdc, ejeY, alto);
-
-    MoveToEx(
-        hdc,
-        ejeY - 6,
-        12,
-        NULL
-    );
-
-    LineTo(hdc, ejeY, 0);
-
-    LineTo(
-        hdc,
-        ejeY + 6,
-        12
-    );
-
-    SelectObject(hdc, anterior);
-    DeleteObject(lapiz);
-
-    DibujarTexto(
-        hdc,
-        ancho - 25,
-        ejeX + 8,
-        "X",
-        RGB(20, 20, 20)
-    );
-
-    DibujarTexto(
-        hdc,
-        ejeY + 8,
-        5,
-        "Y",
-        RGB(20, 20, 20)
-    );
-}
-
-static void DibujarNumeros(
-    HDC hdc,
-    int ancho,
-    int alto,
-    GraphView *vista
-)
-{
-    double izquierda;
-    double derecha;
-    double arriba;
-    double abajo;
-
-    int inicioX;
-    int finX;
-    int inicioY;
-    int finY;
-
-    int ejeX;
-    int ejeY;
-
-    char texto[50];
-
-    izquierda = MundoX(0, ancho, vista);
-    derecha = MundoX(ancho, ancho, vista);
-
-    arriba = MundoY(0, alto, vista);
-    abajo = MundoY(alto, alto, vista);
-
-    inicioX = (int)ceil(izquierda);
-    finX = (int)floor(derecha);
-
-    inicioY = (int)ceil(abajo);
-    finY = (int)floor(arriba);
-
-    ejeX = PantallaY(0, alto, vista);
-    ejeY = PantallaX(0, ancho, vista);
-
-    for (int x = inicioX; x <= finX; x++)
-    {
-        int px;
-
-        if (x == 0)
-            continue;
-
-        px = PantallaX(x, ancho, vista);
-
-        sprintf(texto, "%d", x);
-
-        DibujarTexto(
-            hdc,
-            px + 4,
-            ejeX + 5,
-            texto,
-            RGB(80, 80, 80)
-        );
-    }
-
-    for (int y = inicioY; y <= finY; y++)
-    {
-        int py;
-
-        if (y == 0)
-            continue;
-
-        py = PantallaY(y, alto, vista);
-
-        sprintf(texto, "%d", y);
-
-        DibujarTexto(
-            hdc,
-            ejeY + 7,
-            py - 8,
-            texto,
-            RGB(80, 80, 80)
-        );
-    }
-
-    DibujarTexto(
-        hdc,
-        ejeY + 5,
-        ejeX + 5,
-        "0",
-        RGB(80, 80, 80)
-    );
-}
-
-static void DibujarFuncion(
-    HDC hdc,
-    int ancho,
-    int alto,
-    GraphView *vista,
-    MathFunction *funcion
-)
-{
-    HPEN lapiz;
-    HPEN anterior;
-
-    BOOL primerPunto = TRUE;
-
-    lapiz = CreatePen(
-        PS_SOLID,
-        3,
-        RGB(30, 100, 220)
-    );
-
-    anterior = (HPEN)SelectObject(
-        hdc,
-        lapiz
-    );
-
-    for (int px = 0; px < ancho; px++)
-    {
-        double x;
-        double y;
-        int py;
-
-        x = MundoX(px, ancho, vista);
-        y = FunctionEvaluate(funcion, x);
-
-        if (isnan(y) || isinf(y))
+        // Dibujar número en el eje Y si está visible horizontalmente
+        if (originX >= 0 && originX <= width && fabs(y) > 0.001)
         {
-            primerPunto = TRUE;
-            continue;
-        }
-
-        py = PantallaY(y, alto, vista);
-
-        if (py < -10000 || py > alto + 10000)
-        {
-            primerPunto = TRUE;
-            continue;
-        }
-
-        if (primerPunto)
-        {
-            MoveToEx(
-                hdc,
-                px,
-                py,
-                NULL
-            );
-
-            primerPunto = FALSE;
-        }
-        else
-        {
-            LineTo(
-                hdc,
-                px,
-                py
-            );
+            char text[32];
+            sprintf(text, "%.1f", y);
+            DrawGraphText(hdc, originX + 5, py - 8, text);
         }
     }
 
-    SelectObject(hdc, anterior);
-    DeleteObject(lapiz);
-}
+    // Dibujar Ejes principales (X e Y marcados en negrita)
+    SelectObject(hdc, axisPen);
 
-void DibujarGrafico(
-    HDC hdc,
-    int ancho,
-    int alto,
-    GraphView *vista,
-    MathFunction *funcion
-)
-{
-    HBRUSH fondo;
-    RECT rect;
-
-    fondo = CreateSolidBrush(
-        RGB(255, 255, 255)
-    );
-
-    rect.left = 0;
-    rect.top = 0;
-    rect.right = ancho;
-    rect.bottom = alto;
-
-    FillRect(
-        hdc,
-        &rect,
-        fondo
-    );
-
-    DeleteObject(fondo);
-
-    DibujarCuadricula(
-        hdc,
-        ancho,
-        alto,
-        vista
-    );
-
-    DibujarEjes(
-        hdc,
-        ancho,
-        alto,
-        vista
-    );
-
-    DibujarNumeros(
-        hdc,
-        ancho,
-        alto,
-        vista
-    );
-
-    if (funcion->valida)
+    if (originX >= 0 && originX <= width)
     {
-        DibujarFuncion(
-            hdc,
-            ancho,
-            alto,
-            vista,
-            funcion
-        );
+        MoveToEx(hdc, originX, 0, NULL);
+        LineTo(hdc, originX, height);
+    }
+
+    if (originY >= 0 && originY <= height)
+    {
+        MoveToEx(hdc, 0, originY, NULL);
+        LineTo(hdc, width, originY);
+    }
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(gridPen);
+    DeleteObject(axisPen);
+
+    // 3. Dibujar la función matemática si es válida
+    if (function->valid)
+    {
+        HPEN funcPen = CreatePen(PS_SOLID, 2, RGB(0, 102, 204));
+        oldPen = (HPEN)SelectObject(hdc, funcPen);
+
+        int firstPoint = 1;
+        int prevScreenY = 0;
+
+        for (int px = 0; px < width; px++)
+        {
+            double xVal = WorldX(px, width, view);
+            double yVal = FunctionEvaluate(function, xVal);
+
+            if (isnan(yVal) || isinf(yVal))
+            {
+                firstPoint = 1;
+                continue;
+            }
+
+            int py = ScreenY(yVal, height, view);
+
+            if (!firstPoint && abs(py - prevScreenY) > height * 2)
+            {
+                firstPoint = 1;
+                continue;
+            }
+
+            if (firstPoint)
+            {
+                MoveToEx(hdc, px, py, NULL);
+                firstPoint = 0;
+            }
+            else
+            {
+                LineTo(hdc, px, py);
+            }
+
+            prevScreenY = py;
+        }
+
+        SelectObject(hdc, oldPen);
+        DeleteObject(funcPen);
     }
 }
